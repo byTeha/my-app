@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState,useRef} from 'react'
 
 import PostList from '../components/PostList';
 import PostForm from '../components/PostForm';
@@ -12,6 +12,7 @@ import Loader from '../components/UI/Loader/Loader';
 import { useFetching } from '../hooks/useFetching';
 import { getPageCount } from '../utils/pages';
 import Pagination from '../components/UI/pagination/Pagination';
+import { useObserver } from '../hooks/useObserver';
 
 
 
@@ -24,19 +25,22 @@ const [totalPages, setTotalPages] = useState(0);
 const [limit, setLimit] = useState(10);
 const [page, setPage] = useState(1)
 const sortedAndSearchedPosts = usePosts(posts, filter.sort, filter.query);
+const lastElement = useRef();
 
 
 
 const [fetchPosts, isPostsLoading, postError] = useFetching(async (limit,page) => {
   const response = await PostService.getAll(limit,page);
-    setPosts(response.data);
+    setPosts([...posts,...response.data]);
     const totalCount= response.headers['x-total-count'];
     setTotalPages(getPageCount(totalCount, limit))
 })
 
+useObserver(lastElement, page < totalPages, isPostsLoading, () => { setPage (page + 1) })
+
 useEffect(() =>{
    fetchPosts(limit,page)
-},[])
+},[page])
 
 
 
@@ -51,7 +55,6 @@ const removePost = (post) =>{
 
 const changePage = (page) =>{
   setPage(page)
-  fetchPosts(limit,page)
 }
   return (
    <div className = 'App'>
@@ -68,11 +71,11 @@ const changePage = (page) =>{
      setFilter={setFilter}
    />
    {postError &&
-   <h1>Произошла ошибка ${postError}</h1>}
-   {isPostsLoading
-     ? <div style={{display:'flex',justifyContent:'center', marginTop:'50px'}}> <Loader/> </div> 
-     : <PostList remove={removePost} posts={sortedAndSearchedPosts} title="Список постов 1"/> 
-     }
+        <h1>Произошла ошибка ${postError}</h1> }
+   {isPostsLoading &&
+     <div style={{display:'flex',justifyContent:'center', marginTop:'50px'}}> <Loader/> </div> }
+     <PostList remove={removePost} posts={sortedAndSearchedPosts} title="Список постов 1"/> 
+     <div ref={lastElement} style={{height:20}}/>
      <Pagination
      page={page}
      changePage={changePage}
